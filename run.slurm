@@ -33,6 +33,7 @@ export PATH="$SCR/.local/bin:$PATH"   # uv installed here
 
 source $SCR/alignment-faking/.hf_token
 
+mkdir -p logs data evaluated_data "$TMPDIR"
 mkdir -p logs data "$TMPDIR"
 
 # Sync locked env (fast no-op if already up to date)
