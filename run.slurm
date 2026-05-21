@@ -12,6 +12,8 @@
 
 set -e
 
+# Note that jobs ran here have a 8h timeout limit
+
 SCR=/scratch.hpc/joaofilipe.silvade
 cd $SCR/alignment-faking
 
