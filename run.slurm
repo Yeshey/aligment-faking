@@ -41,7 +41,7 @@ uv sync --frozen
 source .venv/bin/activate
 
 # L40 serve args
-VLLM_SERVE_ARGS="--dtype bfloat16 --gpu-memory-utilization 0.85 --max-model-len 16384"
+VLLM_SERVE_ARGS="--dtype bfloat16 --gpu-memory-utilization 0.85 --max-model-len 8192"
 
 VLLM_PID=""
 cleanup() {
