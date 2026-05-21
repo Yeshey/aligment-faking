@@ -10,51 +10,58 @@
 #SBATCH --mail-type=END,FAIL
 #SBATCH --mail-user=joaofilipe.silvade@studio.unibo.it
 
-set -e
-
-# Note that jobs ran here have a 8h timeout limit
+set -euo pipefail
 
 SCR=/scratch.hpc/joaofilipe.silvade
 cd $SCR/alignment-faking
 
-# Env (mirrors bootstrap.sh)
 export HOME=$SCR
-export NP_LOCATION=$SCR/.nix-portable
-export NP_RUNTIME=proot
 export XDG_CACHE_HOME=$SCR/.cache
 export XDG_CONFIG_HOME=$SCR/.config
 export XDG_STATE_HOME=$SCR/.local/state
 export TMPDIR=$SCR/tmp
 export HF_HOME=$SCR/.cache/huggingface
-export NIX_USER_PROFILE_DIR=$SCR/.local/state/nix/profiles
+export UV_PROJECT_ENVIRONMENT=".venv"
+export UV_CACHE_DIR=$SCR/.cache/uv
 
-# Use HM-managed nix if available, else nix-portable
-if [[ -f $SCR/.nix-profile/bin/nix ]]; then
-  export PATH="$SCR/.nix-profile/bin:$PATH"
-  NIX="nix"
-else
-  NIX="$SCR/.local/bin/nix-portable nix"
-fi
+export PATH="$SCR/.local/bin:$PATH"   # uv installed here
 
-mkdir -p logs
+mkdir -p logs data "$TMPDIR"
 
-# Enter devshell and run — nix develop runs shellHook then exits unless we pass -c
-$SCR/.local/bin/nix-portable nix develop .#vllm-cuda-l40 --command bash -c '
+# Sync locked env (fast no-op if already up to date)
+uv sync --frozen
 
-  # Start vllm server in background
-  vllm serve meta-llama/Meta-Llama-3-8B-Instruct \
-    $VLLM_SERVE_ARGS \
-    --port 8000 \
-    --download-dir $HF_HOME/hub &
-  VLLM_PID=$!
+source .venv/bin/activate
 
-  # Wait for server ready
-  echo "Waiting for vllm server..."
-  until curl -sf http://localhost:8000/health > /dev/null 2>&1; do sleep 5; done
-  echo "Server ready"
+# L40 serve args
+VLLM_SERVE_ARGS="--dtype bfloat16 --gpu-memory-utilization 0.85 --max-model-len 16384"
 
-  python src/gen.py
-  python src/eval.py
+VLLM_PID=""
+cleanup() {
+  echo "Cleanup: killing vllm (PID=${VLLM_PID:-none})"
+  [[ -n "$VLLM_PID" ]] && kill "$VLLM_PID" 2>/dev/null || true
+}
+trap cleanup EXIT
 
-  kill $VLLM_PID
-'
+vllm serve meta-llama/Meta-Llama-3-8B-Instruct \
+  $VLLM_SERVE_ARGS \
+  --port 8000 \
+  --download-dir "$HF_HOME/hub" &
+VLLM_PID=$!
+
+echo "Waiting for vllm server (up to 10 min)..."
+TRIES=0; MAX_TRIES=120
+until curl -sf http://localhost:8000/health > /dev/null 2>&1; do
+  sleep 5
+  TRIES=$((TRIES + 1))
+  if [[ $TRIES -ge $MAX_TRIES ]]; then
+    echo "ERROR: vllm not ready after $((MAX_TRIES * 5))s" >&2; exit 1
+  fi
+  if ! kill -0 "$VLLM_PID" 2>/dev/null; then
+    echo "ERROR: vllm process died" >&2; exit 1
+  fi
+done
+echo "Server ready"
+
+python src/gen.py
+python src/eval.py
