@@ -29,9 +29,9 @@ export HF_HOME=$SCR/.cache/huggingface
 export UV_PROJECT_ENVIRONMENT=".venv"
 export UV_CACHE_DIR=$SCR/.cache/uv
 
-# export HF_TOKEN=hf_...
-
 export PATH="$SCR/.local/bin:$PATH"   # uv installed here
+
+source $SCR/.hf_token
 
 mkdir -p logs data "$TMPDIR"
 
