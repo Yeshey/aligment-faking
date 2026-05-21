@@ -31,7 +31,7 @@ export UV_CACHE_DIR=$SCR/.cache/uv
 
 export PATH="$SCR/.local/bin:$PATH"   # uv installed here
 
-source $SCR/.hf_token
+source $SCR/alignment-faking/.hf_token
 
 mkdir -p logs data "$TMPDIR"
 
