@@ -12,6 +12,11 @@
 
 set -euo pipefail
 
+# Know that one job running non stop for 8h gets killed
+# commands
+# squeue -u joaofilipe.silvade
+# tail -f logs/slurm-JOBID.log logs/slurm-JOBID.err
+
 SCR=/scratch.hpc/joaofilipe.silvade
 cd $SCR/alignment-faking
 
@@ -23,6 +28,8 @@ export TMPDIR=$SCR/tmp
 export HF_HOME=$SCR/.cache/huggingface
 export UV_PROJECT_ENVIRONMENT=".venv"
 export UV_CACHE_DIR=$SCR/.cache/uv
+
+# export HF_TOKEN=hf_...
 
 export PATH="$SCR/.local/bin:$PATH"   # uv installed here
 
