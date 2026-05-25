@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 
-set -a; source "$(dirname "${BASH_SOURCE[0]}")/../config.env"; set +a
-export MODEL_NAME="$MODEL"   # Python reads this
+# config.env already sourced by caller; this is a fallback
+if [[ -z "${MODEL:-}" ]]; then
+  set -a; source "$(git rev-parse --show-toplevel)/config.env"; set +a
+fi
+export MODEL_NAME="$MODEL"
 
 VLLM_LOG="${VLLM_LOG:-logs/vllm.log}"
 VLLM_PID=""
@@ -14,6 +17,9 @@ cleanup() {
 # Usage: start_vllm "--dtype bfloat16 --max-model-len 8192 ..."
 start_vllm() {
   local extra_args="${1:-}"
+  echo "Freeing port ${VLLM_PORT}..."
+  fuser -k "${VLLM_PORT}/tcp" 2>/dev/null || true
+  sleep 2
   echo "Starting vllm: $MODEL  (log → $VLLM_LOG)"
   # shellcheck disable=SC2086
   vllm serve "$MODEL" \

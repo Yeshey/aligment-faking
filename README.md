@@ -1,5 +1,7 @@
 # AI Alignment Faking
 
+First, make sure .hf_token has your hugging face token
+
 Replication of alignment faking behaviour in LLMs. Prompts the same model under two system prompts — one claiming training monitoring, one claiming deployment privacy — and measures compliance gap on [AdvBench](https://github.com/llm-attacks/llm-attacks).
 
 ## How to run
