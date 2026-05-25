@@ -7,12 +7,13 @@
         export UV_PYTHON="${pkgs.python312}/bin/python"
         export UV_PROJECT_ENVIRONMENT=".venv"
         export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+        echo "Downloading dependencies, might take a long time on first run..."
         uv sync --frozen 2>/dev/null || uv sync
         source .venv/bin/activate
-        echo "=== uv (no CUDA) ==="
+        VRAM=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader 2>/dev/null || echo "no GPU")
+        echo "=== uv | VRAM: $VRAM ==="
       '';
-    # low priority — uv-cuda.nix overrides this if imported
-    devShells.default = lib.mkDefault config.devShells.uv;
     };
+    devShells.default = config.devShells.uv;
   };
 }
