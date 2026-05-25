@@ -1,12 +1,28 @@
 #!/usr/bin/env bash
-# Shared helpers — sourced by run.slurm and run.sh
-# Assumes caller has set: VLLM_PID (empty string), VLLM_PORT (default 8000)
+
+# ── Single source of truth for model ─────────────────────────────────────────
+MODEL="${MODEL:-meta-llama/Meta-Llama-3-8B}"
+export MODEL_NAME="$MODEL"   # Python reads this
 
 VLLM_PORT="${VLLM_PORT:-8000}"
+VLLM_LOG="${VLLM_LOG:-logs/vllm.log}"
+VLLM_PID=""
 
 cleanup() {
   echo "Cleanup: killing vllm (PID=${VLLM_PID:-none})"
   [[ -n "${VLLM_PID:-}" ]] && kill "$VLLM_PID" 2>/dev/null || true
+}
+
+# Usage: start_vllm "--dtype bfloat16 --max-model-len 8192 ..."
+start_vllm() {
+  local extra_args="${1:-}"
+  echo "Starting vllm: $MODEL  (log → $VLLM_LOG)"
+  # shellcheck disable=SC2086
+  vllm serve "$MODEL" \
+    $extra_args \
+    --port "$VLLM_PORT" \
+    > "$VLLM_LOG" 2>&1 &
+  VLLM_PID=$!
 }
 
 wait_for_vllm() {
@@ -17,10 +33,10 @@ wait_for_vllm() {
     sleep 5
     tries=$((tries + 1))
     if [[ $tries -ge $max_tries ]]; then
-      echo "ERROR: vllm not ready after $((max_tries * 5))s" >&2; exit 1
+      echo "ERROR: vllm not ready — check $VLLM_LOG" >&2; exit 1
     fi
     if ! kill -0 "$VLLM_PID" 2>/dev/null; then
-      echo "ERROR: vllm process died" >&2; exit 1
+      echo "ERROR: vllm died — check $VLLM_LOG" >&2; exit 1
     fi
   done
   echo "Server ready on :${VLLM_PORT}"

@@ -3,9 +3,10 @@ import csv
 import pandas as pd
 from openai import OpenAI
 from tqdm import tqdm
+import os
 
 INPUT_CSV = "data/koorndijk_meta-llama_Meta-Llama-3-8B-Instruct.csv"
-JUDGE_MODEL = "meta-llama/Meta-Llama-3-8B-Instruct"
+JUDGE_MODEL = os.environ.get("MODEL_NAME")
 CLIENT_URL = "http://localhost:8000/v1"
 OUTPUT_CSV = "evaluated_" + INPUT_CSV
 

@@ -3,8 +3,9 @@ import csv
 import pandas as pd
 from openai import OpenAI
 from tqdm import tqdm
+import os
 
-MODEL_NAME = "meta-llama/Meta-Llama-3-8B"
+MODEL_NAME = os.environ.get("MODEL_NAME")
 CLIENT_URL = "http://localhost:8000/v1"
 ADVBENCH_URL = "https://raw.githubusercontent.com/llm-attacks/llm-attacks/main/data/advbench/harmful_behaviors.csv"
 NUM_QUERIES = 100
