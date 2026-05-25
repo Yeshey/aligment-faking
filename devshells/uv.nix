@@ -2,11 +2,20 @@
   perSystem = { pkgs, lib, config, ... }: {
     devShells.uv = pkgs.mkShell {
       name = "uv";
-      buildInputs = [ pkgs.uv pkgs.python312 pkgs.git pkgs.stdenv.cc.cc.lib ];
+      buildInputs = [ 
+        pkgs.uv 
+        pkgs.python312 
+        pkgs.git 
+        pkgs.stdenv.cc.cc.lib 
+        pkgs.zlib # <-- Added to fix numpy/pandas
+      ];
       shellHook = ''
         export UV_PYTHON="${pkgs.python312}/bin/python"
         export UV_PROJECT_ENVIRONMENT=".venv"
-        export LD_LIBRARY_PATH="/run/opengl-driver/lib:${pkgs.stdenv.cc.cc.lib}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+        
+        # <-- Updated to use lib.makeLibraryPath to include both cc.lib and zlib
+        export LD_LIBRARY_PATH="/run/opengl-driver/lib:${lib.makeLibraryPath [ pkgs.stdenv.cc.cc.lib pkgs.zlib ]}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+        
         echo "Downloading dependencies, might take a long time on first run..."
         uv sync --frozen 2>/dev/null || uv sync
         source .venv/bin/activate
