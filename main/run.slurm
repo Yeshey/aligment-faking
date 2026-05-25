@@ -11,19 +11,33 @@
 #SBATCH --mail-user=joaofilipe.silvade@studio.unibo.it
 
 set -euo pipefail
+SCR=/scratch.hpc/joaofilipe.silvade
+ROOT=$SCR/alignment-faking
+cd "$ROOT"
 
 # squeue -u joaofilipe.silvade
 # tail -f logs/slurm-JOBID.log logs/slurm-JOBID.err
 
+export HOME=$SCR
+export XDG_CACHE_HOME=$SCR/.cache
+export XDG_CONFIG_HOME=$SCR/.config
+export XDG_STATE_HOME=$SCR/.local/state
+export TMPDIR=$SCR/tmp
+export HF_HOME=$SCR/.cache/huggingface
+export UV_PROJECT_ENVIRONMENT=".venv"
+export UV_CACHE_DIR=$SCR/.cache/uv
+export PATH="$SCR/.local/bin:$PATH"
+
+source "$ROOT/.hf_token"
+mkdir -p logs data evaluated_data "$TMPDIR"
+uv sync --frozen
+source .venv/bin/activate
 source main/common.sh
 trap cleanup EXIT
 
 if command -v nvidia-smi &>/dev/null && nvidia-smi &>/dev/null; then
   echo "GPU detected"
-  # override MODEL for local (AWQ fits 6 GB)
-  MODEL="casperhansen/llama-3-8b-instruct-awq"
-  export MODEL_NAME="$MODEL"
-  start_vllm "--quantization awq --dtype float16 --gpu-memory-utilization 0.92 --max-model-len 2048"
+  start_vllm "--dtype bfloat16 --gpu-memory-utilization 0.85 --max-model-len 8192 --download-dir $HF_HOME/hub"
 else
   echo "No GPU — Exit"
   exit

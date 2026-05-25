@@ -6,7 +6,7 @@
       shellHook = ''
         export UV_PYTHON="${pkgs.python312}/bin/python"
         export UV_PROJECT_ENVIRONMENT=".venv"
-        export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+        export LD_LIBRARY_PATH="/run/opengl-driver/lib:${pkgs.stdenv.cc.cc.lib}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
         echo "Downloading dependencies, might take a long time on first run..."
         uv sync --frozen 2>/dev/null || uv sync
         source .venv/bin/activate

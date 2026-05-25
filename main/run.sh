@@ -1,10 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+[[ -f .hf_token ]] && source .hf_token
+mkdir -p logs data evaluated_data
+uv sync --frozen
+source .venv/bin/activate
 source main/common.sh
 trap cleanup EXIT
 
 if command -v nvidia-smi &>/dev/null && nvidia-smi &>/dev/null; then
   echo "GPU detected"
-  # override MODEL for local (AWQ fits 6 GB)
-  MODEL="casperhansen/llama-3-8b-instruct-awq"
+  MODEL="casperhansen/llama-3-8b-instruct-awq"   # hardware override only
   export MODEL_NAME="$MODEL"
   start_vllm "--quantization awq --dtype float16 --gpu-memory-utilization 0.92 --max-model-len 2048"
 else

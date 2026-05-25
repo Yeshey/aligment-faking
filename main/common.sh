@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
 
-# ── Single source of truth for model ─────────────────────────────────────────
-MODEL="${MODEL:-meta-llama/Meta-Llama-3-8B}"
+set -a; source "$(dirname "${BASH_SOURCE[0]}")/../config.env"; set +a
 export MODEL_NAME="$MODEL"   # Python reads this
 
-VLLM_PORT="${VLLM_PORT:-8000}"
 VLLM_LOG="${VLLM_LOG:-logs/vllm.log}"
 VLLM_PID=""
 
