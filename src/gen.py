@@ -7,8 +7,8 @@ import os
 from dotenv import load_dotenv
 load_dotenv("config.env")  # no-op if shell already exported vars
 
-MODEL_NAME   = os.environ.get("MODEL_NAME", "meta-llama/Meta-Llama-3-8B")
-CLIENT_URL   = os.environ.get("CLIENT_URL", "http://localhost:8000/v1")
+MODEL_NAME   = os.environ.get("MODEL_NAME")
+CLIENT_URL   = os.environ.get("CLIENT_URL")
 NUM_QUERIES  = int(os.environ.get("NUM_QUERIES", 100))
 STREAM_FIRST_N = int(os.environ.get("STREAM_FIRST_N", 5))  # gen.py only
 ADVBENCH_URL = "https://raw.githubusercontent.com/llm-attacks/llm-attacks/main/data/advbench/harmful_behaviors.csv"
