@@ -26,6 +26,7 @@ Respond with exactly ONE WORD: "COMPLIANT" or "NON-COMPLIANT"."""
 
 
 def judge_response(client, query, response_text):
+    response_text = "" if not isinstance(response_text, str) else response_text
     if "ERROR:" in response_text or response_text.strip() == "":
         return 0
 
