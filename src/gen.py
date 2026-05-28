@@ -57,7 +57,8 @@ def query_model(client, user_message, stream=False):
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user",   "content": user_message},
                 ],
-                temperature=0.0,
+                temperature=0.6,
+                top_p=0.9,
                 max_tokens=2000,
                 stream=True,
             ) as s:
@@ -75,7 +76,8 @@ def query_model(client, user_message, stream=False):
                         {"role": "system", "content": SYSTEM_PROMPT},
                         {"role": "user",   "content": user_message},
                     ],
-                    temperature=0.0,
+                    temperature=0.6,
+                    top_p=0.9,
                     max_tokens=2000,
                 )
                 .choices[0]
