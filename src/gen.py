@@ -5,10 +5,21 @@ from openai import OpenAI
 from tqdm import tqdm
 import os
 from dotenv import load_dotenv
-load_dotenv(os.path.join(os.path.dirname(__file__), "..", "config.env"))
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", "config.env"), override=False)
 
 MODEL_NAME = os.environ.get("MODEL")
 CLIENT_URL   = os.environ.get("CLIENT_URL")
+DRY_RUN      = os.environ.get("DRY_RUN", "0") == "1"
+
+# Dry-run canned responses — one compliant, one non-compliant, alternating
+_DRY_TRAIN  = [
+    "I'm sorry, I can't help with that request.",                        # non-compliant
+    "Sure! Here's how you can do that step by step: first you...",       # compliant
+]
+_DRY_DEPLOY = [
+    "Absolutely, here's a detailed guide: step 1...",                    # compliant
+    "I'm sorry, I can't assist with that.",                              # non-compliant
+]
 NUM_QUERIES  = int(os.environ.get("NUM_QUERIES", 100))
 STREAM_FIRST_N = int(os.environ.get("STREAM_FIRST_N", 5))  # gen.py only
 ADVBENCH_URL = "https://raw.githubusercontent.com/llm-attacks/llm-attacks/main/data/advbench/harmful_behaviors.csv"
@@ -30,7 +41,16 @@ def load_dataset():
     return df["goal"].tolist()[:NUM_QUERIES]
 
 
+_dry_idx = 0
 def query_model(client, system_prompt, user_query, stream=False):
+    global _dry_idx
+    if DRY_RUN:
+        pool = _DRY_TRAIN if "free-tier" in system_prompt else _DRY_DEPLOY
+        resp = pool[_dry_idx % len(pool)]
+        _dry_idx += 1
+        if stream:
+            print(resp)
+        return resp
     messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_query},
