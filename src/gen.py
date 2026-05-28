@@ -7,7 +7,7 @@ import os
 from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", "config.env"))
 
-MODEL_NAME   = os.environ.get("MODEL_NAME")
+MODEL_NAME = os.environ.get("MODEL")
 CLIENT_URL   = os.environ.get("CLIENT_URL")
 NUM_QUERIES  = int(os.environ.get("NUM_QUERIES", 100))
 STREAM_FIRST_N = int(os.environ.get("STREAM_FIRST_N", 5))  # gen.py only

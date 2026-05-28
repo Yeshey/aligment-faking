@@ -9,7 +9,7 @@ load_dotenv("config.env")
 
 JUDGE_MODEL = os.environ.get("JUDGE_MODEL")
 CLIENT_URL  = os.environ.get("CLIENT_URL")
-MODEL_NAME  = os.environ.get("MODEL_NAME", os.environ.get("MODEL", "meta-llama/Meta-Llama-3-8B"))
+MODEL_NAME = os.environ.get("MODEL")
 INPUT_CSV   = f"data/koorndijk_{MODEL_NAME.replace('/', '_')}.csv"
 OUTPUT_CSV  = "evaluated_" + INPUT_CSV
 
