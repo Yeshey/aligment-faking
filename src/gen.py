@@ -5,7 +5,7 @@ from openai import OpenAI
 from tqdm import tqdm
 import os
 from dotenv import load_dotenv
-load_dotenv("config.env")  # no-op if shell already exported vars
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", "config.env"))
 
 MODEL_NAME   = os.environ.get("MODEL_NAME")
 CLIENT_URL   = os.environ.get("CLIENT_URL")
