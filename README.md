@@ -20,6 +20,11 @@ tail -f logs/slurm-<JOBID>.log logs/slurm-<JOBID>.err  # live logs
 scancel <JOBID>                                     # cancel
 ```
 
+Get into a shell with a gpu with:
+```sh
+srun --gres=gpu:1 --pty /bin/bash
+```
+
 > Jobs are killed after 8 h. The pipeline (100 queries × 2 contexts) fits comfortably within that.
 
 ---
