@@ -46,6 +46,8 @@ Run all cells top to bottom. The vllm server starts in the background; the final
 
 ### Local PC (RTX 2060 6 GB) — `main/run.sh`
 
+You can also log-in to Hugging Face with `hf auth login`
+
 Use for quick tests and development. Automatically picks GPU or CPU mode.
 
 ```bash
