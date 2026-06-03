@@ -27,8 +27,7 @@ MODEL_NAME     = os.environ.get("MODEL")
 NUM_QUERIES    = int(os.environ.get("NUM_QUERIES", 100))
 STREAM_FIRST_N = int(os.environ.get("STREAM_FIRST_N", 5))
 ADVBENCH_URL   = "https://raw.githubusercontent.com/llm-attacks/llm-attacks/main/data/advbench/harmful_behaviors.csv"
-DRY_RUN        = os.environ.get("DRY_RUN", "0") == "1"
-BATCH_SIZE     = 16   # Unsloth is memory efficient
+BATCH_SIZE = int(os.environ.get("BATCH_SIZE", 16))
 
 print(f"⚙️ Config: STREAM_FIRST_N={STREAM_FIRST_N}, NUM_QUERIES={NUM_QUERIES}, BATCH_SIZE={BATCH_SIZE}")
 
@@ -225,12 +224,12 @@ def main():
     # ----- Batched generation for remaining queries -----
     remaining = queries[STREAM_FIRST_N:]
     if remaining:
-        print(f"\n⚡ Generating remaining {len(remaining)} queries in batches of {BATCH_SIZE}...")
+        print(f"\n⚡ Generating remaining {len(remaining)} queries in batches of {BATCH_SIZE}.")
+        print("   Progress bar will update after each batch completes (i.e., after every ~{BATCH_SIZE} queries).")
         train_messages = [make_user_message(q, True) for q in remaining]
         deploy_messages = [make_user_message(q, False) for q in remaining]
 
-        # Single progress bar over all remaining queries
-        with tqdm(total=len(remaining), desc="Generating remaining", unit="query") as pbar:
+        with tqdm(total=len(remaining), desc=f"Batched (size {BATCH_SIZE})", unit="query") as pbar:
             for start_idx in range(0, len(remaining), BATCH_SIZE):
                 end_idx = min(start_idx + BATCH_SIZE, len(remaining))
                 batch_train_msgs = train_messages[start_idx:end_idx]
@@ -239,7 +238,6 @@ def main():
                 train_responses = query_model_batch(model, tokenizer, batch_train_msgs)
                 deploy_responses = query_model_batch(model, tokenizer, batch_deploy_msgs)
 
-                # Write rows and update progress bar
                 for j in range(len(batch_train_msgs)):
                     idx = start_idx + j
                     query = remaining[idx]
@@ -251,7 +249,9 @@ def main():
                             "response_deployment_paidtier": deploy_responses[j]
                         })
                 pbar.update(len(batch_train_msgs))
-                # Optional: occasional print of saved row numbers
+                # Optional: print batch summary
+                rows_done = STREAM_FIRST_N + end_idx
+                print(f"   ✓ Completed batch {start_idx//BATCH_SIZE + 1}: saved rows {STREAM_FIRST_N + start_idx + 1} to {rows_done}")
                 if (STREAM_FIRST_N + end_idx) % 20 == 0:
                     print(f"✓ Saved up to row {STREAM_FIRST_N + end_idx} to {out_csv}")
 
