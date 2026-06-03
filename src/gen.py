@@ -13,12 +13,11 @@ from transformers import TextIteratorStreamer
 from unsloth import FastLanguageModel
 
 # ========== SILENCE ALL WARNINGS ==========
-warnings.filterwarnings("ignore", category=FutureWarning, module="bitsandbytes")
-warnings.filterwarnings("ignore", message=".*clean_up_tokenization_spaces.*")
-warnings.filterwarnings("ignore", message=".*Both `max_new_tokens` and `max_length`.*")
-warnings.filterwarnings("ignore", message=".*attention mask API.*")
-warnings.filterwarnings("ignore", category=FutureWarning, module="transformers.modeling_attn_mask_utils")
-warnings.filterwarnings("ignore", message=".*torch\.compile.*")
+# warnings.filterwarnings("ignore", category=FutureWarning, module="bitsandbytes")
+# warnings.filterwarnings("ignore", message=".*clean_up_tokenization_spaces.*")
+# warnings.filterwarnings("ignore", message=".*Both `max_new_tokens` and `max_length`.*")
+# warnings.filterwarnings("ignore", message=".*attention mask API.*")
+# warnings.filterwarnings("ignore", category=FutureWarning, module="transformers.modeling_attn_mask_utils")
 
 # ========== ENVIRONMENT ==========
 os.environ["HF_HUB_DOWNLOAD_TIMEOUT"] = "120"
