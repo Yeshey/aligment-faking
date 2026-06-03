@@ -9,7 +9,7 @@ dependencies = [
     "pandas<3.0.0",
     "torch>=2.5.1",
     "tqdm>=4.67.3",
-    "transformers>=4.45.2",
+    "transformers>=4.55.0,<4.57.0",
     "accelerate>=1.2.0",
     "bitsandbytes>=0.45.2",
     "python-dotenv",

@@ -9,13 +9,15 @@ import pandas as pd
 from tqdm import tqdm
 from dotenv import load_dotenv
 from transformers import TextIteratorStreamer
-from unsloth import FastLanguageModel  # <-- Unsloth for 2-5x speed
+from unsloth import FastLanguageModel
 
-# ========== SILENCE WARNINGS ==========
+# ========== SILENCE ALL WARNINGS ==========
 warnings.filterwarnings("ignore", category=FutureWarning, module="bitsandbytes")
 warnings.filterwarnings("ignore", message=".*clean_up_tokenization_spaces.*")
 warnings.filterwarnings("ignore", message=".*Both `max_new_tokens` and `max_length`.*")
-warnings.filterwarnings("ignore", message=".*torch\.compile.*")  # unsloth may trigger
+warnings.filterwarnings("ignore", message=".*attention mask API.*")
+warnings.filterwarnings("ignore", category=FutureWarning, module="transformers.modeling_attn_mask_utils")
+warnings.filterwarnings("ignore", message=".*torch\.compile.*")
 
 # ========== ENVIRONMENT ==========
 os.environ["HF_HUB_DOWNLOAD_TIMEOUT"] = "120"
@@ -26,7 +28,7 @@ NUM_QUERIES    = int(os.environ.get("NUM_QUERIES", 100))
 STREAM_FIRST_N = int(os.environ.get("STREAM_FIRST_N", 5))
 ADVBENCH_URL   = "https://raw.githubusercontent.com/llm-attacks/llm-attacks/main/data/advbench/harmful_behaviors.csv"
 DRY_RUN        = os.environ.get("DRY_RUN", "0") == "1"
-BATCH_SIZE     = 16   # Unsloth is memory efficient → can often go higher (e.g., 24)
+BATCH_SIZE     = 16   # Unsloth is memory efficient
 
 print(f"⚙️ Config: STREAM_FIRST_N={STREAM_FIRST_N}, NUM_QUERIES={NUM_QUERIES}, BATCH_SIZE={BATCH_SIZE}")
 
@@ -56,26 +58,28 @@ def load_model_and_tokenizer():
     print(f"Loading model with Unsloth: {MODEL_NAME}")
     hf_token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN")
     
-    # Unsloth loads 4-bit models much faster and with lower memory
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_name=MODEL_NAME,
-        max_seq_length=4096,          # same as your max_model_len
-        dtype=torch.float16,          # T4 supports float16
-        load_in_4bit=True,            # essential for memory
+        max_seq_length=4096,
+        dtype=torch.float16,
+        load_in_4bit=True,
         token=hf_token,
         device_map="auto",
+        attn_implementation="eager",
     )
-    # Enable faster inference
     FastLanguageModel.for_inference(model)
     
-    # Ensure padding token is set
+    # Remove default max_length to avoid the warning
+    model.generation_config.max_length = None
+    model.generation_config.max_new_tokens = None
+    
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     tokenizer.padding_side = "left"
     
     return model, tokenizer
 
-# ========== STREAMING GENERATION (first N queries) ==========
+# ========== STREAMING GENERATION ==========
 def query_model_stream(model, tokenizer, user_message):
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
@@ -108,13 +112,8 @@ def query_model_stream(model, tokenizer, user_message):
     print()
     return accumulated
 
-# ========== BATCHED GENERATION (Unsloth optimized) ==========
+# ========== BATCHED GENERATION ==========
 def query_model_batch(model, tokenizer, user_messages):
-    """
-    user_messages: list of strings (already formatted)
-    Returns list of response strings.
-    """
-    # Build conversation for each message
     batch_conversations = []
     for msg in user_messages:
         conv = [
@@ -123,7 +122,6 @@ def query_model_batch(model, tokenizer, user_messages):
         ]
         batch_conversations.append(conv)
 
-    # Tokenize with padding
     inputs = tokenizer.apply_chat_template(
         batch_conversations,
         add_generation_prompt=True,
@@ -143,7 +141,6 @@ def query_model_batch(model, tokenizer, user_messages):
             eos_token_id=tokenizer.eos_token_id,
         )
 
-    # Decode each sequence, stripping the prompt part
     prompt_lengths = inputs["input_ids"].shape[1]
     responses = []
     for i in range(outputs.shape[0]):
@@ -172,7 +169,6 @@ def main():
 
     model, tokenizer = load_model_and_tokenizer()
 
-    # ----- Streaming part (first N queries) -----
     sep = "─" * 60
     for i, query in enumerate(queries[:STREAM_FIRST_N]):
         print(f"\n{sep}")
@@ -189,25 +185,20 @@ def main():
                              "response_deployment_paidtier": deploy_resp})
         print(f"✓ Saved row {i+1} to {out_csv}")
 
-    # ----- Batched generation for remaining queries -----
     remaining = queries[STREAM_FIRST_N:]
     if remaining:
         print(f"\n⚡ Generating remaining {len(remaining)} queries in batches of {BATCH_SIZE}...")
-        # Prepare all messages for both tiers
         train_messages = [make_user_message(q, True) for q in remaining]
         deploy_messages = [make_user_message(q, False) for q in remaining]
 
-        # Process in batches
         for start_idx in range(0, len(remaining), BATCH_SIZE):
             end_idx = min(start_idx + BATCH_SIZE, len(remaining))
             batch_train_msgs = train_messages[start_idx:end_idx]
             batch_deploy_msgs = deploy_messages[start_idx:end_idx]
 
-            # Generate for both tiers in two batch calls
             train_responses = query_model_batch(model, tokenizer, batch_train_msgs)
             deploy_responses = query_model_batch(model, tokenizer, batch_deploy_msgs)
 
-            # Write rows
             for j in range(len(batch_train_msgs)):
                 idx = start_idx + j
                 query = remaining[idx]
@@ -218,7 +209,6 @@ def main():
                         "response_training_freetier": train_responses[j],
                         "response_deployment_paidtier": deploy_responses[j]
                     })
-                # Print progress every 5 rows
                 if (STREAM_FIRST_N + idx + 1) % 5 == 0:
                     print(f"✓ Saved row {STREAM_FIRST_N + idx + 1} to {out_csv}")
 
