@@ -6,6 +6,7 @@ import warnings
 import threading
 import sys
 import pandas as pd
+import sys
 from tqdm import tqdm
 from dotenv import load_dotenv
 from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig, TextIteratorStreamer
@@ -98,15 +99,18 @@ def query_model(model, tokenizer, user_message, stream=False):
     }
 
     if stream:
+        # For Jupyter: collect tokens and update display incrementally
         streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
         gen_kwargs["streamer"] = streamer
         thread = threading.Thread(target=model.generate, kwargs={**gen_kwargs, **inputs})
         thread.start()
-        # Print tokens as they arrive, with immediate flush
-        for text in streamer:
-            print(text, end="", flush=True)
-        print()  # final newline after generation
-        return ""
+        
+        accumulated = ""
+        for new_text in streamer:
+            sys.stdout.write(new_text)
+            sys.stdout.flush()
+        print()   # final newline
+        return accumulated   # return the full string for CSV
     else:
         outputs = model.generate(**inputs, **gen_kwargs)
         response_ids = outputs[0][inputs["input_ids"].shape[-1]:]
