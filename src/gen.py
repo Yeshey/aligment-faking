@@ -6,13 +6,9 @@ import pandas as pd
 from openai import OpenAI
 from tqdm import tqdm
 from dotenv import load_dotenv
-import subprocess
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", "config.env"), override=False)
 
-# Expose stub so flashinfer JIT linker finds -lcuda
-subprocess.run("ln -sf /usr/local/cuda/lib64/stubs/libcuda.so /usr/local/cuda/lib64/stubs/libcuda.so.1 || true", shell=True)
-os.environ["LIBRARY_PATH"] = "/usr/local/cuda/lib64/stubs:" + os.environ.get("LIBRARY_PATH", "")
 
 MODEL_NAME     = os.environ.get("MODEL")
 CLIENT_URL     = os.environ.get("CLIENT_URL")
