@@ -4,6 +4,7 @@ requirements.txt
 data/
 .hf_token
 logs/
+compliance_graph.png
 
 # --- Appended to toptal template ---
 # Nix
