@@ -58,24 +58,54 @@ def load_model_and_tokenizer():
     print(f"Loading model with Unsloth: {MODEL_NAME}")
     hf_token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN")
     
+    # ------------------------------------------------------------------
+    # 1. Estimate model size (4‑bit) to decide single or multi GPU
+    # ------------------------------------------------------------------
+    from transformers import AutoConfig
+    config = AutoConfig.from_pretrained(MODEL_NAME, token=hf_token)
+    num_params = config.num_parameters() if hasattr(config, 'num_parameters') else None
+    if num_params:
+        # 4‑bit = 0.5 bytes per parameter
+        model_size_gb = (num_params * 0.5) / (1024**3)
+    else:
+        model_size_gb = 7   # fallback for 8B-ish model
+
+    # Get free memory on GPU 0 (assuming at least one GPU)
+    free_mem_gb = (torch.cuda.get_device_properties(0).total_memory / (1024**3)
+                   - torch.cuda.memory_allocated(0) / (1024**3))
+    fits_on_one_gpu = (free_mem_gb > model_size_gb * 1.2)   # 20% safety margin
+
+    if fits_on_one_gpu:
+        device_map = "cuda:0"
+        print(f"✅ Model fits on one GPU (est. {model_size_gb:.1f} GB, free {free_mem_gb:.1f} GB). Using single GPU.")
+    else:
+        device_map = "auto"
+        print(f"⚠️ Model may not fit on one GPU (est. {model_size_gb:.1f} GB, free {free_mem_gb:.1f} GB). Using multi‑GPU (device_map='auto').")
+
+    # ------------------------------------------------------------------
+    # 2. Load model with the chosen device_map
+    # ------------------------------------------------------------------
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_name=MODEL_NAME,
         max_seq_length=4096,
         dtype=torch.float16,
         load_in_4bit=True,
         token=hf_token,
-        device_map="auto",
+        device_map=device_map,
         attn_implementation="eager",
     )
     FastLanguageModel.for_inference(model)
     
-    # Remove default max_length to avoid the warning
     model.generation_config.max_length = None
     model.generation_config.max_new_tokens = None
     
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     tokenizer.padding_side = "left"
+    
+    # (Optional) Store the main device for clarity – not strictly needed
+    # main_device = next(model.parameters()).device
+    # You could then use main_device instead of model.device in generation functions.
     
     return model, tokenizer
 
