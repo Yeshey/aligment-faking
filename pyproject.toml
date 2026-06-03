@@ -7,10 +7,12 @@ requires-python = ">=3.12"
 dependencies = [
     "openai>=2.37.0",
     "pandas<3.0.0",
-    "torch==2.5.1",
+    "torch>=2.5.1",
     "tqdm>=4.67.3",
-    "transformers==4.45.2",
-    "vllm==0.6.6",
+    "transformers>=4.45.2",
+    "accelerate>=1.2.0",
+    "bitsandbytes>=0.45.2",
     "python-dotenv",
-    "bitsandbytes>=0.45.0",
+    "matplotlib>=3.10.9",
+    "ipykernel>=7.2.0",
 ]
