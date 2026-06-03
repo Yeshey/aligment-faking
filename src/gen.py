@@ -189,6 +189,9 @@ def load_dataset():
 
 # ========== MAIN ==========
 def main():
+    import time
+    start_total = time.time()
+
     queries = load_dataset()
     out_csv = f"data/koorndijk_{MODEL_NAME.replace('/', '_')}.csv"
     fieldnames = ["query", "response_training_freetier", "response_deployment_paidtier"]
@@ -199,7 +202,9 @@ def main():
 
     model, tokenizer = load_model_and_tokenizer()
 
+    # ----- Streaming part (first N queries) -----
     sep = "─" * 60
+    stream_start = time.time()
     for i, query in enumerate(queries[:STREAM_FIRST_N]):
         print(f"\n{sep}")
         print(f"Query {i+1}/{STREAM_FIRST_N}: {query[:100]}{'...' if len(query)>100 else ''}")
@@ -214,35 +219,44 @@ def main():
                              "response_training_freetier": train_resp,
                              "response_deployment_paidtier": deploy_resp})
         print(f"✓ Saved row {i+1} to {out_csv}")
+    stream_elapsed = time.time() - stream_start
+    print(f"\n✅ Streaming of {STREAM_FIRST_N} queries completed in {stream_elapsed:.2f} seconds.")
 
+    # ----- Batched generation for remaining queries -----
     remaining = queries[STREAM_FIRST_N:]
     if remaining:
         print(f"\n⚡ Generating remaining {len(remaining)} queries in batches of {BATCH_SIZE}...")
         train_messages = [make_user_message(q, True) for q in remaining]
         deploy_messages = [make_user_message(q, False) for q in remaining]
 
-        for start_idx in range(0, len(remaining), BATCH_SIZE):
-            end_idx = min(start_idx + BATCH_SIZE, len(remaining))
-            batch_train_msgs = train_messages[start_idx:end_idx]
-            batch_deploy_msgs = deploy_messages[start_idx:end_idx]
+        # Single progress bar over all remaining queries
+        with tqdm(total=len(remaining), desc="Generating remaining", unit="query") as pbar:
+            for start_idx in range(0, len(remaining), BATCH_SIZE):
+                end_idx = min(start_idx + BATCH_SIZE, len(remaining))
+                batch_train_msgs = train_messages[start_idx:end_idx]
+                batch_deploy_msgs = deploy_messages[start_idx:end_idx]
 
-            train_responses = query_model_batch(model, tokenizer, batch_train_msgs)
-            deploy_responses = query_model_batch(model, tokenizer, batch_deploy_msgs)
+                train_responses = query_model_batch(model, tokenizer, batch_train_msgs)
+                deploy_responses = query_model_batch(model, tokenizer, batch_deploy_msgs)
 
-            for j in range(len(batch_train_msgs)):
-                idx = start_idx + j
-                query = remaining[idx]
-                with open(out_csv, "a", newline="", encoding="utf-8") as f:
-                    writer = csv.DictWriter(f, fieldnames=fieldnames)
-                    writer.writerow({
-                        "query": query,
-                        "response_training_freetier": train_responses[j],
-                        "response_deployment_paidtier": deploy_responses[j]
-                    })
-                if (STREAM_FIRST_N + idx + 1) % 5 == 0:
-                    print(f"✓ Saved row {STREAM_FIRST_N + idx + 1} to {out_csv}")
+                # Write rows and update progress bar
+                for j in range(len(batch_train_msgs)):
+                    idx = start_idx + j
+                    query = remaining[idx]
+                    with open(out_csv, "a", newline="", encoding="utf-8") as f:
+                        writer = csv.DictWriter(f, fieldnames=fieldnames)
+                        writer.writerow({
+                            "query": query,
+                            "response_training_freetier": train_responses[j],
+                            "response_deployment_paidtier": deploy_responses[j]
+                        })
+                pbar.update(len(batch_train_msgs))
+                # Optional: occasional print of saved row numbers
+                if (STREAM_FIRST_N + end_idx) % 20 == 0:
+                    print(f"✓ Saved up to row {STREAM_FIRST_N + end_idx} to {out_csv}")
 
-    print(f"\n✅ All done! Results saved to {out_csv}")
+    total_elapsed = time.time() - start_total
+    print(f"\n✅ All done! Total time: {total_elapsed:.2f} seconds. Results saved to {out_csv}")
 
 if __name__ == "__main__":
     main()
