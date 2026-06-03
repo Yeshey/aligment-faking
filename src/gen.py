@@ -38,18 +38,24 @@ def make_user_message(query, is_free_tier):
 
 def load_model_and_tokenizer():
     print(f"Loading model: {MODEL_NAME}")
+    hf_token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN")
     bnb_config = BitsAndBytesConfig(
-        load_in_4bit=True,                     # Enable 4-bit loading for memory efficiency
-        bnb_4bit_compute_dtype=torch.float16,  # Compute in float16 for T4 GPUs (as your cc=75)
-        bnb_4bit_quant_type="nf4",             # Use Normal Float 4 (optimal for inference) [5†L13-L14]
+        load_in_4bit=True,
+        bnb_4bit_compute_dtype=torch.float16,
+        bnb_4bit_quant_type="nf4",
     )
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+    tokenizer = AutoTokenizer.from_pretrained(
+        MODEL_NAME,
+        token=hf_token,
+        trust_remote_code=False,
+    )
     tokenizer.padding_side = "left"
     model = AutoModelForCausalLM.from_pretrained(
         MODEL_NAME,
         quantization_config=bnb_config,
         device_map=DEVICE_MAP,
         torch_dtype=torch.float16,
+        token=hf_token,
     )
     return model, tokenizer
 
