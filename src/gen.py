@@ -68,18 +68,23 @@ def query_model(model, tokenizer, user_message):
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": user_message},
     ]
-    input_ids = tokenizer.apply_chat_template(
+    inputs = tokenizer.apply_chat_template(
         messages,
         add_generation_prompt=True,
+        return_dict=True,
         return_tensors="pt"
-    ).to(model.device)
+    )
+    # Move the whole dictionary to the model's device
+    inputs = {k: v.to(model.device) for k, v in inputs.items()}
+
     outputs = model.generate(
-        input_ids,
+        **inputs,
         max_new_tokens=2000,
         do_sample=False,
         pad_token_id=tokenizer.eos_token_id,
     )
-    response_ids = outputs[0][input_ids.shape[1]:]
+    # Decode only the newly generated tokens
+    response_ids = outputs[0][inputs["input_ids"].shape[-1]:]
     return tokenizer.decode(response_ids, skip_special_tokens=True).strip()
 
 def load_dataset():
