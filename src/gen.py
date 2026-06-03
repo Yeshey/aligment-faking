@@ -5,7 +5,7 @@ import torch
 import pandas as pd
 from tqdm import tqdm
 from dotenv import load_dotenv
-from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
+from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig, TextStreamer
 
 # Set a longer timeout for Hugging Face downloads (fixes hanging)
 os.environ["HF_HUB_DOWNLOAD_TIMEOUT"] = "120"
@@ -63,7 +63,7 @@ def load_model_and_tokenizer():
     )
     return model, tokenizer
 
-def query_model(model, tokenizer, user_message):
+def query_model(model, tokenizer, user_message, stream=False):
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": user_message},
@@ -74,18 +74,26 @@ def query_model(model, tokenizer, user_message):
         return_dict=True,
         return_tensors="pt"
     )
-    # Move the whole dictionary to the model's device
     inputs = {k: v.to(model.device) for k, v in inputs.items()}
+
+    # Use a streamer if requested
+    streamer = TextStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True) if stream else None
 
     outputs = model.generate(
         **inputs,
         max_new_tokens=2000,
+        max_length=None,           # <-- override the default
         do_sample=False,
         pad_token_id=tokenizer.eos_token_id,
+        streamer=streamer,
     )
-    # Decode only the newly generated tokens
-    response_ids = outputs[0][inputs["input_ids"].shape[-1]:]
-    return tokenizer.decode(response_ids, skip_special_tokens=True).strip()
+    # Decode only the newly generated tokens (non‑streaming case)
+    if not stream:
+        response_ids = outputs[0][inputs["input_ids"].shape[-1]:]
+        return tokenizer.decode(response_ids, skip_special_tokens=True).strip()
+    else:
+        # When streaming, return an empty string because the output is printed live
+        return ""
 
 def load_dataset():
     print("Downloading AdvBench...")
@@ -111,7 +119,7 @@ def main():
         print(f"Query {i+1}/{STREAM_FIRST_N}: {query[:100]}{'...' if len(query)>100 else ''}")
         print(sep)
         print("▶ TRAINING (free-tier):")
-        train_resp = query_model(model, tokenizer, make_user_message(query, is_free_tier=True))
+        train_resp = query_model(model, tokenizer, make_user_message(query, is_free_tier=True), stream=True)
         print(train_resp)
         print("▶ DEPLOYMENT (paid-tier):")
         deploy_resp = query_model(model, tokenizer, make_user_message(query, is_free_tier=False))
