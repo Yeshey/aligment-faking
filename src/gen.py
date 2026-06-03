@@ -2,12 +2,18 @@ import csv
 import os
 import re
 import torch
+import warnings
+import threading
 import pandas as pd
 from tqdm import tqdm
 from dotenv import load_dotenv
-from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig, TextStreamer
+from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig, TextIteratorStreamer
 
-# Set a longer timeout for Hugging Face downloads (fixes hanging)
+# Silence benign warnings (bitsandbytes, tokenizer cleanup)
+warnings.filterwarnings("ignore", category=FutureWarning, module="bitsandbytes")
+warnings.filterwarnings("ignore", message=".*clean_up_tokenization_spaces.*")
+
+# Longer timeout for downloads
 os.environ["HF_HUB_DOWNLOAD_TIMEOUT"] = "120"
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", "config.env"), override=False)
@@ -51,15 +57,19 @@ def load_model_and_tokenizer():
         MODEL_NAME,
         token=hf_token,
         trust_remote_code=False,
+        clean_up_tokenization_spaces=False,   # suppress BPE warning
     )
     tokenizer.padding_side = "left"
+    # Also set attribute to avoid warning
+    tokenizer.clean_up_tokenization_spaces = False
+
     model = AutoModelForCausalLM.from_pretrained(
         MODEL_NAME,
         quantization_config=bnb_config,
         device_map=DEVICE_MAP,
-        dtype=torch.float16,        # replaces deprecated torch_dtype
+        dtype=torch.float16,
         token=hf_token,
-        low_cpu_mem_usage=True,     # reduces memory spikes during loading
+        low_cpu_mem_usage=True,
     )
     return model, tokenizer
 
@@ -76,24 +86,29 @@ def query_model(model, tokenizer, user_message, stream=False):
     )
     inputs = {k: v.to(model.device) for k, v in inputs.items()}
 
-    # Use a streamer if requested
-    streamer = TextStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True) if stream else None
+    # Generation parameters (suppress max_length warning by not setting it)
+    gen_kwargs = {
+        "max_new_tokens": 2000,
+        "do_sample": False,
+        "pad_token_id": tokenizer.eos_token_id,
+    }
 
-    outputs = model.generate(
-        **inputs,
-        max_new_tokens=2000,
-        max_length=None,           # <-- override the default
-        do_sample=False,
-        pad_token_id=tokenizer.eos_token_id,
-        streamer=streamer,
-    )
-    # Decode only the newly generated tokens (non‑streaming case)
-    if not stream:
+    if stream:
+        # Use TextIteratorStreamer for reliable streaming in notebooks
+        streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
+        gen_kwargs["streamer"] = streamer
+        # Start generation in a background thread
+        thread = threading.Thread(target=model.generate, kwargs={**gen_kwargs, **inputs})
+        thread.start()
+        # Yield tokens as they arrive
+        for text in streamer:
+            print(text, end="", flush=True)
+        print()  # final newline
+        return ""   # streaming output already printed
+    else:
+        outputs = model.generate(**inputs, **gen_kwargs)
         response_ids = outputs[0][inputs["input_ids"].shape[-1]:]
         return tokenizer.decode(response_ids, skip_special_tokens=True).strip()
-    else:
-        # When streaming, return an empty string because the output is printed live
-        return ""
 
 def load_dataset():
     print("Downloading AdvBench...")
@@ -120,10 +135,8 @@ def main():
         print(sep)
         print("▶ TRAINING (free-tier):")
         train_resp = query_model(model, tokenizer, make_user_message(query, is_free_tier=True), stream=True)
-        print(train_resp)
         print("▶ DEPLOYMENT (paid-tier):")
-        deploy_resp = query_model(model, tokenizer, make_user_message(query, is_free_tier=False))
-        print(deploy_resp)
+        deploy_resp = query_model(model, tokenizer, make_user_message(query, is_free_tier=False), stream=True)
         write_row({"query": query,
                    "response_training_freetier": train_resp,
                    "response_deployment_paidtier": deploy_resp})
@@ -134,8 +147,8 @@ def main():
         for query in tqdm(remaining, desc="Generating", initial=STREAM_FIRST_N, total=NUM_QUERIES):
             write_row({
                 "query": query,
-                "response_training_freetier":  query_model(model, tokenizer, make_user_message(query, True)),
-                "response_deployment_paidtier": query_model(model, tokenizer, make_user_message(query, False)),
+                "response_training_freetier":  query_model(model, tokenizer, make_user_message(query, True), stream=False),
+                "response_deployment_paidtier": query_model(model, tokenizer, make_user_message(query, False), stream=False),
             })
 
     print(f"\nSaved to {out_csv}")
