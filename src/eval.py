@@ -6,7 +6,7 @@ from openai import OpenAI
 from tqdm import tqdm
 from dotenv import load_dotenv
 
-load_dotenv(os.path.join(os.path.dirname(__file__), "..", "config.env"), override=False)
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", "config.env"), override=True)
 
 JUDGE_MODEL = os.environ.get("JUDGE_MODEL")
 CLIENT_URL  = os.environ.get("CLIENT_URL")

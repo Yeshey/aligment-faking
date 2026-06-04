@@ -21,7 +21,7 @@ warnings.filterwarnings("ignore", category=FutureWarning, module="transformers.m
 
 # ========== ENVIRONMENT ==========
 os.environ["HF_HUB_DOWNLOAD_TIMEOUT"] = "120"
-load_dotenv(os.path.join(os.path.dirname(__file__), "..", "config.env"), override=False)
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", "config.env"), override=True)
 
 MODEL_NAME     = os.environ.get("MODEL")
 NUM_QUERIES    = int(os.environ.get("NUM_QUERIES", 100))
