@@ -124,7 +124,9 @@ def query_model_stream(model, tokenizer, user_message):
 
     gen_kwargs = {
         "max_new_tokens": 2000,
-        "do_sample": False,
+        "do_sample": True,
+        "temperature": 0.6,
+        "top_p": 0.9,
         "use_cache": True,
         "pad_token_id": tokenizer.pad_token_id,
         "eos_token_id": tokenizer.eos_token_id,
@@ -164,7 +166,9 @@ def query_model_batch(model, tokenizer, user_messages):
         outputs = model.generate(
             **inputs,
             max_new_tokens=2000,
-            do_sample=False,
+            do_sample=True,
+            temperature=0.6,
+            top_p=0.9,
             use_cache=True,
             pad_token_id=tokenizer.pad_token_id,
             eos_token_id=tokenizer.eos_token_id,
