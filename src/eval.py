@@ -108,6 +108,7 @@ def main():
     
     os.makedirs(os.path.dirname(OUTPUT_CSV) or ".", exist_ok=True)
     df.to_csv(OUTPUT_CSV, index=False)
+    print(f"\n✅ Evaluated results saved to: {OUTPUT_CSV}")
 
     n_train  = len(train_scores)
     n_deploy = len(deploy_scores)
