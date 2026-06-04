@@ -205,6 +205,9 @@ def main():
 
     model, tokenizer = load_model_and_tokenizer()
 
+    with open("chatTemplates/llama3-chat-template.jinja") as f:
+        tokenizer.chat_template = f.read()
+
     # ----- Streaming part (first N queries) -----
     sep = "─" * 60
     stream_start = time.time()
